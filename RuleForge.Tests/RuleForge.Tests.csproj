@@ -11,18 +11,22 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="NSubstitute" Version="5.1.0" />
+    <PackageReference Include="Testcontainers" Version="3.8.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="3.8.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
-    <PackageReference Include="Testcontainers" Version="3.8.0" />
-    <PackageReference Include="Testcontainers.PostgreSql" Version="3.8.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\\RuleForge.Domain\\RuleForge.Domain.csproj" />
-    <ProjectReference Include="..\\RuleForge.Application\\RuleForge.Application.csproj" />
-    <ProjectReference Include="..\\RuleForge.Infrastructure\\RuleForge.Infrastructure.csproj" />
+    <ProjectReference Include="..\RuleForge.Api\RuleForge.Api.csproj" />
+    <ProjectReference Include="..\RuleForge.Domain\RuleForge.Domain.csproj" />
+    <ProjectReference Include="..\RuleForge.Application\RuleForge.Application.csproj" />
+    <ProjectReference Include="..\RuleForge.Infrastructure\RuleForge.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
