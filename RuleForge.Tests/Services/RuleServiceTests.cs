@@ -1,8 +1,7 @@
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using RuleForge.Application.Common;
-using RuleForge.Application.Rules;
+using Microsoft.Extensions.Caching.Memory;
 using RuleForge.Application.Rules.Dto;
 using RuleForge.Domain.Rules;
 using RuleForge.Infrastructure.Persistence;
@@ -13,6 +12,7 @@ namespace RuleForge.Tests.Services;
 public sealed class RuleServiceTests
 {
     private RuleForgeDbContext _dbContext = null!;
+    private IMemoryCache _cache = null!;
     private RuleService _sut = null!;
 
     private void Arrange(Func<RuleForgeDbContext, Task>? seed = null)
@@ -22,7 +22,8 @@ public sealed class RuleServiceTests
             .Options;
 
         _dbContext = new RuleForgeDbContext(options);
-        _sut = new RuleService(_dbContext);
+        _cache = new MemoryCache(new MemoryCacheOptions());
+        _sut = new RuleService(_dbContext, _cache);
         seed?.Invoke(_dbContext).GetAwaiter().GetResult();
     }
 

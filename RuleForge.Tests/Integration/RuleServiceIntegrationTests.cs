@@ -1,6 +1,7 @@
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using RuleForge.Application.Rules.Dto;
 using RuleForge.Domain.Rules;
 using RuleForge.Infrastructure.Persistence;
@@ -12,6 +13,7 @@ namespace RuleForge.Tests.Integration;
 public sealed class RuleServiceIntegrationTests : IDisposable
 {
     private readonly RuleForgeDbContext _dbContext;
+    private readonly IMemoryCache _cache;
     private readonly RuleService _sut;
 
     public RuleServiceIntegrationTests(PostgreSqlFixture fixture)
@@ -21,11 +23,13 @@ public sealed class RuleServiceIntegrationTests : IDisposable
             .Options;
 
         _dbContext = new RuleForgeDbContext(options);
-        _sut = new RuleService(_dbContext);
+        _cache = new MemoryCache(new MemoryCacheOptions());
+        _sut = new RuleService(_dbContext, _cache);
     }
 
     public void Dispose()
     {
+        _cache.Dispose();
         _dbContext.Dispose();
     }
 

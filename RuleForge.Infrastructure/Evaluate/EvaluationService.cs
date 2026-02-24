@@ -1,27 +1,30 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using RuleForge.Application.Evaluate;
 using RuleForge.Application.Evaluate.Dto;
 using RuleForge.Application.Rules.Dto;
+using RuleForge.Domain.Rules;
 using RuleForge.Infrastructure.Persistence;
 
 namespace RuleForge.Infrastructure.Evaluate;
 
-public sealed class EvaluationService : IEvaluationService
+public sealed class EvaluationService(RuleForgeDbContext dbContext, IMemoryCache cache) : IEvaluationService
 {
-    private readonly RuleForgeDbContext _dbContext;
-
-    public EvaluationService(RuleForgeDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
+    private const string ActiveRulesCacheKey = "ActiveRules";
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
     public async Task<EvaluationResult> EvaluateAsync(JsonDocument input, CancellationToken cancellationToken = default)
     {
-        var activeRules = await _dbContext.Rules
-            .Where(r => r.IsActive)
-            .OrderByDescending(r => r.Priority)
-            .ToListAsync(cancellationToken);
+        var activeRules = await cache.GetOrCreateAsync(ActiveRulesCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+            return await dbContext.Rules
+                .AsNoTracking()
+                .Where(r => r.IsActive)
+                .OrderByDescending(r => r.Priority)
+                .ToListAsync(cancellationToken);
+        }) ?? new List<Rule>();
 
         var matchedRules = new List<MatchedRuleResult>();
 

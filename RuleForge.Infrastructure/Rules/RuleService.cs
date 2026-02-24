@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using RuleForge.Application.Common;
 using RuleForge.Application.Rules;
 using RuleForge.Application.Rules.Dto;
@@ -8,18 +9,13 @@ using RuleForge.Infrastructure.Persistence;
 
 namespace RuleForge.Infrastructure.Rules;
 
-public sealed class RuleService : IRuleService
+public sealed class RuleService(RuleForgeDbContext dbContext, IMemoryCache cache) : IRuleService
 {
-    private readonly RuleForgeDbContext _dbContext;
-
-    public RuleService(RuleForgeDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
+    private const string ActiveRulesCacheKey = "ActiveRules";
 
     public async Task<PagedResult<RuleDto>> GetAsync(GetRulesQuery query, CancellationToken cancellationToken = default)
     {
-        var rules = _dbContext.Rules.AsQueryable();
+        var rules = dbContext.Rules.AsNoTracking();
 
         if (query.IsActive.HasValue)
         {
@@ -79,7 +75,7 @@ public sealed class RuleService : IRuleService
 
     public async Task<RuleDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var rule = await _dbContext.Rules.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var rule = await dbContext.Rules.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (rule is null)
         {
             return null;
@@ -103,15 +99,17 @@ public sealed class RuleService : IRuleService
             UpdatedAtUtc = null
         };
 
-        _dbContext.Rules.Add(rule);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.Rules.Add(rule);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
 
         return RuleDto.FromEntity(rule, request.Conditions);
     }
 
     public async Task<RuleDto?> UpdateAsync(Guid id, UpdateRuleRequest request, CancellationToken cancellationToken = default)
     {
-        var rule = await _dbContext.Rules.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var rule = await dbContext.Rules.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (rule is null)
         {
             return null;
@@ -123,23 +121,32 @@ public sealed class RuleService : IRuleService
         rule.Conditions = SerializeConditions(request.Conditions);
         rule.UpdatedAtUtc = DateTime.UtcNow;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
 
         return RuleDto.FromEntity(rule, request.Conditions);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var rule = await _dbContext.Rules.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        var rule = await dbContext.Rules.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (rule is null)
         {
             return false;
         }
 
-        _dbContext.Rules.Remove(rule);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.Rules.Remove(rule);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
 
         return true;
+    }
+
+    private void InvalidateCache()
+    {
+        cache.Remove(ActiveRulesCacheKey);
     }
 
     private static string SerializeConditions(ConditionDto dto)

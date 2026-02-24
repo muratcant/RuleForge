@@ -23,7 +23,10 @@ public sealed class RuleForgeWebApplicationFactory : WebApplicationFactory<Progr
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:Default"] = _connectionString
+                ["ConnectionStrings:Default"] = _connectionString,
+                ["Jwt:Key"] = "RuleForge-Test-Secret-Key-Min-32-Chars-Long!!",
+                ["Jwt:Issuer"] = "RuleForge-Test",
+                ["Jwt:Audience"] = "RuleForge-Api"
             }!);
         });
 

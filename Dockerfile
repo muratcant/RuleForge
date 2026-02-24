@@ -17,6 +17,7 @@ WORKDIR /src
 COPY . .
 
 RUN dotnet restore RuleForge.Api/RuleForge.Api.csproj && \
+    dotnet build RuleForge.Api/RuleForge.Api.csproj -c Release --no-restore && \
     dotnet tool install --global dotnet-ef --version 8.*
 
 ENV PATH="$PATH:/root/.dotnet/tools"

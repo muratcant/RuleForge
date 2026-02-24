@@ -9,21 +9,14 @@ namespace RuleForge.Api.Controllers;
 [ApiController]
 [Route("api/rules")]
 [Authorize(Roles = "Admin")]
-public sealed class RulesController : ControllerBase
+public sealed class RulesController(IRuleService ruleService) : ControllerBase
 {
-    private readonly IRuleService _ruleService;
-
-    public RulesController(IRuleService ruleService)
-    {
-        _ruleService = ruleService;
-    }
-
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<RuleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PagedResult<RuleDto>>> Get([FromQuery] GetRulesQuery query, CancellationToken cancellationToken)
     {
-        var result = await _ruleService.GetAsync(query, cancellationToken);
+        var result = await ruleService.GetAsync(query, cancellationToken);
         return Ok(result);
     }
 
@@ -32,7 +25,7 @@ public sealed class RulesController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<RuleDto>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var rule = await _ruleService.GetByIdAsync(id, cancellationToken);
+        var rule = await ruleService.GetByIdAsync(id, cancellationToken);
         if (rule is null)
         {
             return NotFound(Problem(
@@ -49,7 +42,7 @@ public sealed class RulesController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<RuleDto>> Create([FromBody] CreateRuleRequest request, CancellationToken cancellationToken)
     {
-        var created = await _ruleService.CreateAsync(request, cancellationToken);
+        var created = await ruleService.CreateAsync(request, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
@@ -59,7 +52,7 @@ public sealed class RulesController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<RuleDto>> Update(Guid id, [FromBody] UpdateRuleRequest request, CancellationToken cancellationToken)
     {
-        var updated = await _ruleService.UpdateAsync(id, request, cancellationToken);
+        var updated = await ruleService.UpdateAsync(id, request, cancellationToken);
         if (updated is null)
         {
             return NotFound(Problem(
@@ -76,7 +69,7 @@ public sealed class RulesController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await _ruleService.DeleteAsync(id, cancellationToken);
+        var deleted = await ruleService.DeleteAsync(id, cancellationToken);
         if (!deleted)
         {
             return NotFound(Problem(
