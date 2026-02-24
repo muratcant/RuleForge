@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore RuleForge.sln
+
+      - name: Build
+        run: dotnet build RuleForge.sln --no-restore --configuration Release
+
+      - name: Test with coverage
+        run: >
+          dotnet test RuleForge.sln
+          --no-build
+          --configuration Release
+          --collect:"XPlat Code Coverage"
+          --results-directory ./coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
