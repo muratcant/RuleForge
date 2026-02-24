@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ruleforge
+      POSTGRES_USER: ruleforge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ruleforge -d ruleforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=ruleforge;Username=ruleforge;Password=${POSTGRES_PASSWORD};Include Error Detail=true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: no
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=ruleforge;Username=ruleforge;Password=${POSTGRES_PASSWORD}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  pgdata:
