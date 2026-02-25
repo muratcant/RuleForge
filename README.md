@@ -107,7 +107,7 @@ PGADMIN_DEFAULT_EMAIL=admin@example.com
 PGADMIN_DEFAULT_PASSWORD=your_secure_password
 ```
 
-Seq arayuzu `http://localhost:5341` adresindedir; ilk giriste kullanici adi `admin`, sifre ise `.env` icindeki `SEQ_FIRSTRUN_ADMINPASSWORD` degeridir.
+The Seq UI is available at `http://localhost:5341`. On first login, use username `admin` and the password from `SEQ_FIRSTRUN_ADMINPASSWORD` in your `.env` file.
 
 ### 2. Start the stack
 
@@ -129,18 +129,18 @@ pgAdmin (development only) is available at **http://localhost:5050**.
 
 ## Monitoring & Observability
 
-RuleForge, tam bir observability stack'i ile birlikte gelir. Tüm araçlar `docker compose up` ile otomatik başlar.
+RuleForge ships with a complete observability stack. All tools start automatically with `docker compose up`.
 
-| Araç | URL | Kullanıcı | Şifre |
-|------|-----|-----------|-------|
+| Tool | URL | Username | Password |
+|------|-----|----------|----------|
 | **Seq** (Structured Logs) | http://localhost:5341 | `admin` | `.env` → `SEQ_FIRSTRUN_ADMINPASSWORD` |
 | **Grafana** (Dashboards) | http://localhost:3001 | `admin` | `admin` |
 | **Jaeger** (Distributed Tracing) | http://localhost:16686 | — | — |
 | **Prometheus** (Metrics) | http://localhost:9090 | — | — |
 
-### Seq Şifre Sıfırlama
+### Resetting Seq Password
 
-`SEQ_FIRSTRUN_ADMINPASSWORD` sadece ilk kurulumda geçerlidir. Şifreyi değiştirmek için Seq volume'unu silip yeniden başlatın:
+`SEQ_FIRSTRUN_ADMINPASSWORD` only applies on first run. To change the password, delete the Seq volume and restart:
 
 ```bash
 docker compose stop seq
@@ -151,15 +151,15 @@ docker compose up -d seq
 
 ### Grafana
 
-Grafana, Prometheus ve Jaeger datasource'ları ile önceden yapılandırılmıştır. `ASP.NET Core Metrics` dashboard'u otomatik olarak yüklenir ve şu metrikleri gösterir:
+Grafana comes pre-configured with Prometheus and Jaeger datasources. The `ASP.NET Core Metrics` dashboard is automatically provisioned and displays:
 
-- HTTP istek oranı ve gecikme süreleri
-- Aktif bağlantı sayısı
-- Hata oranları
+- HTTP request rate and latency
+- Active connection count
+- Error rates
 
 ### Prometheus Metrics Endpoint
 
-API, `/metrics` endpoint'inden Prometheus formatında metrik sunar:
+The API exposes metrics in Prometheus format at the `/metrics` endpoint:
 
 ```bash
 curl http://localhost:5001/metrics
@@ -220,11 +220,11 @@ Authorization: Bearer <token>
 
 ---
 
-## Kullanım Senaryosu: E-Ticaret Sipariş Doğrulama
+## Usage Scenario: E-Commerce Order Validation
 
-Bu senaryo, RuleForge'un bir e-ticaret sisteminde sipariş doğrulama için nasıl kullanılacağını gösterir.
+This scenario demonstrates how to use RuleForge for order validation in an e-commerce system.
 
-### 1. JWT Token Alma (Development)
+### 1. Get a JWT Token (Development)
 
 ```bash
 curl -X POST http://localhost:5001/api/auth/token \
@@ -232,11 +232,11 @@ curl -X POST http://localhost:5001/api/auth/token \
   -d '{"role": "Admin"}'
 ```
 
-Dönen `token` değerini sonraki isteklerde kullanın.
+Use the returned `token` value in subsequent requests.
 
-### 2. Kuralları Tanımlama
+### 2. Define Rules
 
-**Yüksek değerli sipariş kuralı:**
+**High-value order rule:**
 
 ```bash
 curl -X POST http://localhost:5001/api/rules \
@@ -251,7 +251,7 @@ curl -X POST http://localhost:5001/api/rules \
   }'
 ```
 
-**Riskli ülke kuralı:**
+**Risky country rule:**
 
 ```bash
 curl -X POST http://localhost:5001/api/rules \
@@ -266,7 +266,7 @@ curl -X POST http://localhost:5001/api/rules \
   }'
 ```
 
-**VIP müşteri kuralı:**
+**VIP customer rule:**
 
 ```bash
 curl -X POST http://localhost:5001/api/rules \
@@ -281,7 +281,7 @@ curl -X POST http://localhost:5001/api/rules \
   }'
 ```
 
-### 3. Siparişi Değerlendirme
+### 3. Evaluate an Order
 
 ```bash
 curl -X POST http://localhost:5001/api/evaluate \
@@ -301,7 +301,7 @@ curl -X POST http://localhost:5001/api/evaluate \
   }'
 ```
 
-**Örnek yanıt:**
+**Example response:**
 
 ```json
 {
@@ -321,11 +321,11 @@ curl -X POST http://localhost:5001/api/evaluate \
 }
 ```
 
-### 4. Sonuçları İzleme
+### 4. Monitor Results
 
-- **Seq** → Tüm API isteklerinin detaylı loglarını görün
-- **Jaeger** → İstek trace'lerini inceleyin, hangi servisin ne kadar sürdüğünü görün
-- **Grafana** → Gerçek zamanlı metrikler: istek/saniye, ortalama gecikme, hata oranı
+- **Seq** — View detailed logs for all API requests
+- **Jaeger** — Inspect request traces and see how long each service takes
+- **Grafana** — Real-time metrics: requests/second, average latency, error rate
 
 ---
 
