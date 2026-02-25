@@ -6,6 +6,8 @@
 
 A REST API for defining and evaluating business rules at runtime — no redeployment needed. Rules are composed of prioritized conditions that evaluate arbitrary JSON payloads against configurable operators.
 
+> 🤖 **Built with Vibe Coding** — This project was developed using AI-assisted "vibe coding" with [Cursor](https://cursor.sh).
+
 ---
 
 ## Overview
