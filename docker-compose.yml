@@ -36,9 +36,15 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=ruleforge;Username=ruleforge;Password=${POSTGRES_PASSWORD}"
+      Serilog__WriteTo__1__Args__serverUrl: "http://seq:80"
+      OpenTelemetry__OtlpEndpoint: "http://jaeger:4317"
     depends_on:
       migrate:
         condition: service_completed_successfully
+      seq:
+        condition: service_started
+      jaeger:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
@@ -47,5 +53,58 @@ services:
       retries: 3
       start_period: 10s
 
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - jaeger
+      - seq
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+  seq:
+    image: datalust/seq:latest
+    ports:
+      - "5341:80"
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_FIRSTRUN_ADMINPASSWORD}
+    volumes:
+      - seq_data:/data
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  prometheus_data:
+  grafana_data:
+  seq_data:

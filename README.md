@@ -73,7 +73,9 @@ flowchart TD
 | ORM | Entity Framework Core 8 |
 | Validation | FluentValidation |
 | Authentication | JWT Bearer |
-| Logging | Serilog (console + file sinks) |
+| Logging | Serilog → Seq |
+| Tracing | OpenTelemetry → Jaeger |
+| Metrics | OpenTelemetry → Prometheus → Grafana |
 | API Docs | Swagger / OpenAPI |
 | Containerization | Docker + Docker Compose |
 | Testing | xUnit, FluentAssertions, NSubstitute |
@@ -98,9 +100,12 @@ Open `.env` and set your own values:
 
 ```env
 POSTGRES_PASSWORD=your_secure_password
+SEQ_FIRSTRUN_ADMINPASSWORD=your_seq_admin_password
 PGADMIN_DEFAULT_EMAIL=admin@example.com
 PGADMIN_DEFAULT_PASSWORD=your_secure_password
 ```
+
+Seq arayuzu `http://localhost:5341` adresindedir; ilk giriste kullanici adi `admin`, sifre ise `.env` icindeki `SEQ_FIRSTRUN_ADMINPASSWORD` degeridir.
 
 ### 2. Start the stack
 
@@ -117,6 +122,46 @@ This will:
 Swagger UI is available at **http://localhost:5001/swagger** when running in Development mode.
 
 pgAdmin (development only) is available at **http://localhost:5050**.
+
+---
+
+## Monitoring & Observability
+
+RuleForge, tam bir observability stack'i ile birlikte gelir. Tüm araçlar `docker compose up` ile otomatik başlar.
+
+| Araç | URL | Kullanıcı | Şifre |
+|------|-----|-----------|-------|
+| **Seq** (Structured Logs) | http://localhost:5341 | `admin` | `.env` → `SEQ_FIRSTRUN_ADMINPASSWORD` |
+| **Grafana** (Dashboards) | http://localhost:3001 | `admin` | `admin` |
+| **Jaeger** (Distributed Tracing) | http://localhost:16686 | — | — |
+| **Prometheus** (Metrics) | http://localhost:9090 | — | — |
+
+### Seq Şifre Sıfırlama
+
+`SEQ_FIRSTRUN_ADMINPASSWORD` sadece ilk kurulumda geçerlidir. Şifreyi değiştirmek için Seq volume'unu silip yeniden başlatın:
+
+```bash
+docker compose stop seq
+docker compose rm -f seq
+docker volume rm ruleforge_seq_data
+docker compose up -d seq
+```
+
+### Grafana
+
+Grafana, Prometheus ve Jaeger datasource'ları ile önceden yapılandırılmıştır. `ASP.NET Core Metrics` dashboard'u otomatik olarak yüklenir ve şu metrikleri gösterir:
+
+- HTTP istek oranı ve gecikme süreleri
+- Aktif bağlantı sayısı
+- Hata oranları
+
+### Prometheus Metrics Endpoint
+
+API, `/metrics` endpoint'inden Prometheus formatında metrik sunar:
+
+```bash
+curl http://localhost:5001/metrics
+```
 
 ---
 
@@ -173,6 +218,115 @@ Authorization: Bearer <token>
 
 ---
 
+## Kullanım Senaryosu: E-Ticaret Sipariş Doğrulama
+
+Bu senaryo, RuleForge'un bir e-ticaret sisteminde sipariş doğrulama için nasıl kullanılacağını gösterir.
+
+### 1. JWT Token Alma (Development)
+
+```bash
+curl -X POST http://localhost:5001/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"role": "Admin"}'
+```
+
+Dönen `token` değerini sonraki isteklerde kullanın.
+
+### 2. Kuralları Tanımlama
+
+**Yüksek değerli sipariş kuralı:**
+
+```bash
+curl -X POST http://localhost:5001/api/rules \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "name": "High Value Order",
+    "priority": 10,
+    "conditions": [
+      { "field": "order.total", "operator": "GreaterThan", "value": "5000" }
+    ]
+  }'
+```
+
+**Riskli ülke kuralı:**
+
+```bash
+curl -X POST http://localhost:5001/api/rules \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "name": "Risky Country",
+    "priority": 20,
+    "conditions": [
+      { "field": "customer.country", "operator": "In", "value": "XX,YY,ZZ" }
+    ]
+  }'
+```
+
+**VIP müşteri kuralı:**
+
+```bash
+curl -X POST http://localhost:5001/api/rules \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "name": "VIP Customer",
+    "priority": 5,
+    "conditions": [
+      { "field": "customer.tier", "operator": "Equals", "value": "VIP" }
+    ]
+  }'
+```
+
+### 3. Siparişi Değerlendirme
+
+```bash
+curl -X POST http://localhost:5001/api/evaluate \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -d '{
+    "order": {
+      "id": "ORD-12345",
+      "total": 7500,
+      "currency": "USD"
+    },
+    "customer": {
+      "id": "CUST-001",
+      "tier": "VIP",
+      "country": "TR"
+    }
+  }'
+```
+
+**Örnek yanıt:**
+
+```json
+{
+  "matchedRules": [
+    {
+      "id": "...",
+      "name": "VIP Customer",
+      "priority": 5
+    },
+    {
+      "id": "...",
+      "name": "High Value Order",
+      "priority": 10
+    }
+  ],
+  "evaluatedAt": "2026-02-25T12:00:00Z"
+}
+```
+
+### 4. Sonuçları İzleme
+
+- **Seq** → Tüm API isteklerinin detaylı loglarını görün
+- **Jaeger** → İstek trace'lerini inceleyin, hangi servisin ne kadar sürdüğünü görün
+- **Grafana** → Gerçek zamanlı metrikler: istek/saniye, ortalama gecikme, hata oranı
+
+---
+
 ## Running Tests
 
 The test suite includes unit tests and integration tests. Integration tests use [Testcontainers](https://dotnet.testcontainers.org/) to spin up a real PostgreSQL instance, so Docker must be running.
@@ -220,6 +374,13 @@ RuleForge/
 │   ├── Evaluate/                   # Evaluation engine tests
 │   └── Validation/                 # FluentValidation rule tests
 │
+├── observability/                  # Monitoring configuration
+│   ├── prometheus.yml              # Prometheus scrape config
+│   └── grafana/
+│       └── provisioning/           # Grafana auto-provisioning
+│           ├── dashboards/         # Pre-built dashboards (ASP.NET Core Metrics)
+│           └── datasources/        # Prometheus, Jaeger, Seq datasources
+│
 ├── docker-compose.yml              # Production-oriented service definitions
 ├── docker-compose.override.yml     # Development extras (pgAdmin, port mappings)
 └── Dockerfile                      # Multi-stage: build → migrate → runtime
@@ -239,3 +400,9 @@ The GitHub Actions pipeline (`.github/workflows/ci.yml`) runs on every push and 
 The pipeline fails fast: any build error or test failure stops execution immediately.
 
 To enable Codecov, add your `CODECOV_TOKEN` to the repository's **Settings → Secrets → Actions**.
+
+---
+
+## License
+
+This project is licensed under the MIT License.

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RuleForge.Api.Extensions;
+using RuleForge.Api.Middleware;
 using RuleForge.Api.Options;
 using RuleForge.Api.Services;
 using RuleForge.Application.Evaluate;
@@ -95,6 +96,8 @@ try
         });
     });
 
+    builder.Services.AddOpenTelemetryObservability(builder.Configuration);
+
     var app = builder.Build();
 
     if (app.Environment.IsDevelopment())
@@ -102,6 +105,10 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+
+    app.MapGet("/", () => Results.Redirect("/swagger"));
+
+    app.UseCorrelationId();
 
     app.UseExceptionHandler(errorApp =>
     {
@@ -145,6 +152,7 @@ try
 
     app.MapControllers();
     app.MapHealthChecks("/health");
+    app.MapPrometheusScrapingEndpoint();
 
     app.Run();
 }
